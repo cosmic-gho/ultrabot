@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-darkBg text-textMain min-h-screen overflow-x-hidden bg-glow;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-glassBg backdrop-blur-[12px] border border-glassBorder rounded-card shadow-glass;
+  }
+  
+  .input-group {
+    @apply relative mb-5;
+  }
+  
+  .input-group i {
+    @apply absolute left-4 top-1/2 -translate-y-1/2 text-textMuted;
+  }
+  
+  .glass-input, .input-group input {
+    @apply w-full py-3.5 pr-3.5 pl-[45px] bg-black/20 border border-glassBorder rounded-xl text-white text-base transition-all duration-300 focus:outline-none focus:border-primary focus:shadow-glow;
+  }
+  
+  .btn {
+    @apply w-full p-3.5 border-none rounded-xl text-base font-semibold cursor-pointer transition-all duration-300;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-hover hover:-translate-y-0.5 hover:shadow-glow;
+  }
+  
+  .btn-secondary {
+    @apply bg-white/5 text-textMain border border-glassBorder hover:bg-white/10;
+  }
+
+  .nav-links li {
+    @apply py-3 px-4 mb-2 rounded-lg cursor-pointer text-textMuted transition-all duration-200 flex items-center gap-3;
+  }
+
+  .nav-links li:hover, .nav-links li.active {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .pulse {
+    @apply w-2 h-2 rounded-full bg-textMuted;
+  }
+
+  .pulse.running {
+    @apply bg-success shadow-pulseRunning;
+  }
+  
+  .icon-wrap {
+    @apply w-12 h-12 rounded-xl flex items-center justify-center text-2xl absolute top-6 right-6;
+  }
+}
+
+/* Hide scrollbar for clean look */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
