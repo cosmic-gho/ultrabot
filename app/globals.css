@@ -25,6 +25,22 @@
     @apply w-full py-3.5 pr-3.5 pl-[45px] bg-black/20 border border-glassBorder rounded-xl text-white text-base transition-all duration-300 focus:outline-none focus:border-primary focus:shadow-glow;
   }
   
+  .glass-input {
+    @apply pl-4;
+  }
+
+  .glass-select {
+    @apply w-full py-3.5 px-4 bg-black/20 border border-glassBorder rounded-xl text-white text-base transition-all duration-300 focus:outline-none focus:border-primary focus:shadow-glow appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 12px center;
+    background-repeat: no-repeat;
+    background-size: 20px;
+  }
+
+  .glass-select option {
+    @apply bg-zinc-900 text-white;
+  }
+  
   .btn {
     @apply w-full p-3.5 border-none rounded-xl text-base font-semibold cursor-pointer transition-all duration-300;
   }
@@ -35,6 +51,14 @@
   
   .btn-secondary {
     @apply bg-white/5 text-textMain border border-glassBorder hover:bg-white/10;
+  }
+
+  .btn-danger {
+    @apply bg-danger/20 text-danger border border-danger/30 hover:bg-danger/30;
+  }
+
+  .btn-success {
+    @apply bg-success/20 text-success border border-success/30 hover:bg-success/30;
   }
 
   .nav-links li {
@@ -52,9 +76,93 @@
   .pulse.running {
     @apply bg-success shadow-pulseRunning;
   }
+
+  .pulse.error {
+    @apply bg-danger;
+    box-shadow: 0 0 10px #ef4444;
+  }
   
   .icon-wrap {
     @apply w-12 h-12 rounded-xl flex items-center justify-center text-2xl absolute top-6 right-6;
+  }
+
+  /* ─── Toggle Switch ─── */
+  .toggle-switch {
+    @apply relative w-14 h-7 rounded-full cursor-pointer transition-all duration-300;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .toggle-switch.active {
+    @apply bg-success/40;
+  }
+
+  .toggle-switch::after {
+    content: '';
+    @apply absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-all duration-300;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .toggle-switch.active::after {
+    transform: translateX(28px);
+    @apply bg-success;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  }
+
+  /* ─── Status Badges ─── */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border;
+  }
+
+  .status-badge.running {
+    @apply bg-success/10 text-success border-success/20;
+  }
+
+  .status-badge.stopped {
+    @apply bg-white/5 text-textMuted border-glassBorder;
+  }
+
+  .status-badge.error {
+    @apply bg-danger/10 text-danger border-danger/20;
+  }
+
+  /* ─── Config Form ─── */
+  .config-field {
+    @apply mb-6;
+  }
+
+  .config-field label {
+    @apply block mb-2 text-textMuted text-sm font-medium;
+  }
+
+  .config-field .helper {
+    @apply mt-1.5 text-xs text-textMuted/60;
+  }
+
+  /* ─── Chart Container ─── */
+  .chart-container {
+    @apply w-full rounded-xl overflow-hidden;
+    height: 220px;
+  }
+
+  .chart-container canvas {
+    @apply w-full h-full;
+  }
+
+  /* ─── Pagination ─── */
+  .pagination-btn {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-glassBorder;
+  }
+
+  .pagination-btn:hover:not(:disabled) {
+    @apply bg-white/10;
+  }
+
+  .pagination-btn:disabled {
+    @apply opacity-30 cursor-not-allowed;
+  }
+
+  .pagination-btn.active {
+    @apply bg-primary/20 text-primary border-primary/30;
   }
 }
 
@@ -71,4 +179,44 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Animations ─── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); }
+}
+
+.pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
 }

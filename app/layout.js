@@ -4,8 +4,8 @@ import "./globals.css";
 const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Ultra Trading - Dashboard",
-  description: "Ultra Trading SaaS Next.js Dashboard",
+  title: "Ultra Trading Bot — Dashboard",
+  description: "Ultra Trading SaaS — Automated MT5 trading bot with real-time performance monitoring, strategy configuration, and trade history.",
 };
 
 export default function RootLayout({ children }) {
