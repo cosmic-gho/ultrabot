@@ -1,5 +1,4 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
 
 export default function StatsCards({ dashboardData }) {
   const pnl = parseFloat(dashboardData.total_pnl || 0);

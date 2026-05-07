@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
 
-export default function BotControl({ botStatus, onStart, onStop, loading }) {
+export default function BotControl({ botStatus, onStart, onStop, loading, startBlockedReason = "" }) {
   const isRunning = botStatus?.status === "running";
   const isError = botStatus?.status === "error";
   const isAlive = botStatus?.is_alive;
+  const startBlocked = !isRunning && Boolean(startBlockedReason);
 
   const formatUptime = (seconds) => {
     if (!seconds || seconds <= 0) return "—";
@@ -93,6 +93,12 @@ export default function BotControl({ botStatus, onStart, onStop, loading }) {
                   {botStatus.error_message}
                 </span>
               )}
+              {startBlocked && (
+                <span className="text-yellow-400">
+                  <i className="fa-solid fa-shield-halved mr-1"></i>
+                  {startBlockedReason}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -100,9 +106,9 @@ export default function BotControl({ botStatus, onStart, onStop, loading }) {
         {/* Right — toggle */}
         <button
           onClick={isRunning ? onStop : onStart}
-          disabled={loading}
+          disabled={loading || startBlocked}
           className={`flex items-center gap-2.5 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 border ${
-            loading
+            loading || startBlocked
               ? "opacity-50 cursor-not-allowed bg-white/5 border-glassBorder text-textMuted"
               : isRunning
               ? "bg-danger/15 border-danger/30 text-danger hover:bg-danger/25"

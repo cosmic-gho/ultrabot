@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import StatsCards from "./components/StatsCards";
 import BotControl from "./components/BotControl";
 import BotConfig from "./components/BotConfig";
+import BrokerSettings from "./components/BrokerSettings";
+import BrokerReadinessCard from "./components/BrokerReadinessCard";
 import EquityChart from "./components/EquityChart";
 import TradeHistory from "./components/TradeHistory";
 
@@ -15,14 +17,12 @@ export default function Home() {
   const [authSuccess, setAuthSuccess] = useState("");
   const [activeSection, setActiveSection] = useState("dashboard");
 
-  // Form states
+  // Auth form states
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [mt5Login, setMt5Login] = useState("");
-  const [mt5Password, setMt5Password] = useState("");
-  const [mt5Server, setMt5Server] = useState("");
-  const [mt5Status, setMt5Status] = useState("");
-  const [mt5Configured, setMt5Configured] = useState(false);
+  const [brokerConfigured, setBrokerConfigured] = useState(false);
+  const [brokerProvider, setBrokerProvider] = useState("");
+  const [startBlockedReason, setStartBlockedReason] = useState("Link and validate a broker account before starting the bot.");
 
   // Dashboard Data
   const [dashboardData, setDashboardData] = useState({
@@ -92,13 +92,56 @@ export default function Home() {
 
   const loadAppConfig = async (t) => {
     try {
-      const configData = await fetchAPI("/account/config", {}, t);
-      if (configData.configured) {
-        setMt5Server(configData.server || "");
-        setMt5Configured(true);
+      const brokerData = await fetchAPI("/account/broker", {}, t);
+      setBrokerConfigured(Boolean(brokerData.configured));
+      setBrokerProvider(brokerData.provider || "");
+      if (!brokerData.configured) {
+        setStartBlockedReason("Link and validate a broker account before starting the bot.");
+      } else {
+        await refreshStartReadiness(t);
       }
     } catch (e) {
+      setBrokerConfigured(false);
+      setBrokerProvider("");
+      setStartBlockedReason("Link and validate a broker account before starting the bot.");
       console.error(e);
+    }
+  };
+
+  const refreshStartReadiness = async (currentToken) => {
+    try {
+      const brokerData = await fetchAPI("/account/broker", {}, currentToken);
+      if (!brokerData.configured) {
+        const reason = "Link and validate a broker account before starting the bot.";
+        setStartBlockedReason(reason);
+        return reason;
+      }
+      if (!brokerData.connection_ok) {
+        const reason = brokerData.connection_message || "Broker connection failed. Update credentials first.";
+        setStartBlockedReason(reason);
+        return reason;
+      }
+
+      const validationData = await fetchAPI("/account/broker/symbols", {}, currentToken);
+      const invalidSymbols = (validationData.results || [])
+        .filter((result) => !result.is_valid)
+        .map((result) => result.symbol);
+
+      if (invalidSymbols.length) {
+        const reason = `Fix invalid symbols before starting: ${invalidSymbols.join(", ")}`;
+        setStartBlockedReason(reason);
+        return reason;
+      }
+
+      setStartBlockedReason("");
+      return "";
+    } catch (error) {
+      if (!error.isAuthError) {
+        const reason = error.message || "Broker readiness check failed.";
+        setStartBlockedReason(reason);
+        return reason;
+      }
+      throw error;
     }
   };
 
@@ -174,34 +217,21 @@ export default function Home() {
     setToken(null);
     stopPolling();
     setActiveSection("dashboard");
-    setMt5Configured(false);
-  };
-
-  // ─── MT5 ───
-  const handleMT5Link = async (e) => {
-    e.preventDefault();
-    setMt5Status("");
-    const body = JSON.stringify({
-      login: parseInt(mt5Login),
-      password: mt5Password,
-      server: mt5Server,
-    });
-
-    try {
-      await fetchAPI("/account/mt5", { method: "POST", body });
-      setMt5Status("success");
-      setMt5Configured(true);
-      setTimeout(() => setMt5Status(""), 3000);
-    } catch (err) {
-      setMt5Status("error");
-      alert("Failed to link MT5: " + err.message);
-    }
+    setBrokerConfigured(false);
+    setBrokerProvider("");
+    setStartBlockedReason("Link and validate a broker account before starting the bot.");
   };
 
   // ─── Bot Control ───
   const handleBotStart = async () => {
     setBotLoading(true);
     try {
+      const readinessError = await refreshStartReadiness();
+      if (readinessError) {
+        setActiveSection("settings");
+        alert(readinessError);
+        return;
+      }
       await fetchAPI("/bot/start", { method: "POST" });
       // Refresh status
       const statusData = await fetchAPI("/bot/status");
@@ -231,8 +261,14 @@ export default function Home() {
     { key: "dashboard", icon: "fa-solid fa-house", label: "Dashboard" },
     { key: "history", icon: "fa-solid fa-clock-rotate-left", label: "Trade History" },
     { key: "config", icon: "fa-solid fa-sliders", label: "Bot Config" },
-    { key: "settings", icon: "fa-solid fa-gear", label: "MT5 Account" },
+    { key: "settings", icon: "fa-solid fa-gear", label: "Broker Account" },
   ];
+
+  const brokerLabel = brokerProvider
+    ? brokerProvider === "capitalcom"
+      ? "Capital.com"
+      : brokerProvider.toUpperCase()
+    : "Broker";
 
   // ═══════════════════════════════════════════
   //  AUTH SCREEN
@@ -410,10 +446,10 @@ export default function Home() {
           </button>
 
           <div className="flex items-center gap-3 ml-auto">
-            {mt5Configured && (
+            {brokerConfigured && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-glassBorder text-xs text-textMuted">
                 <i className="fa-solid fa-link"></i>
-                MT5 Linked
+                {brokerLabel} Linked
               </div>
             )}
             <div className="flex items-center gap-2.5 px-4 py-2 bg-white/5 rounded-full border border-glassBorder text-sm">
@@ -448,6 +484,14 @@ export default function Home() {
               onStart={handleBotStart}
               onStop={handleBotStop}
               loading={botLoading}
+              startBlockedReason={startBlockedReason}
+            />
+
+            <BrokerReadinessCard
+              brokerConfigured={brokerConfigured}
+              brokerLabel={brokerLabel}
+              startBlockedReason={startBlockedReason}
+              onOpenSettings={() => setActiveSection("settings")}
             />
 
             {/* Stats Cards */}
@@ -567,75 +611,20 @@ export default function Home() {
           </section>
         )}
 
-        {/* ═══ MT5 SETTINGS ═══ */}
+        {/* ═══ BROKER SETTINGS ═══ */}
         {activeSection === "settings" && (
-          <section className="p-6 lg:p-10 w-full max-w-[600px] mx-auto">
-            <h1 className="text-3xl font-semibold mb-8">MT5 Integration</h1>
-            <div className="glass-panel p-8 animate-fade-in-up">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <i className="fa-solid fa-link"></i>
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Link MT5 Account</h3>
-                  <p className="text-xs text-textMuted">
-                    Provide your MetaTrader 5 credentials
-                  </p>
-                </div>
-              </div>
-
-              {mt5Configured && (
-                <div className="my-4 p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm flex items-center gap-2">
-                  <i className="fa-solid fa-circle-check"></i>
-                  MT5 account is linked. You can update credentials below.
-                </div>
-              )}
-
-              {mt5Status === "success" && (
-                <div className="mb-6 p-3 rounded-lg bg-success/10 border border-success/20 text-success text-sm flex items-center gap-2 animate-slide-in">
-                  <i className="fa-solid fa-circle-check"></i> MT5 Account
-                  Linked Successfully!
-                </div>
-              )}
-
-              <form onSubmit={handleMT5Link} className="mt-4">
-                <div className="config-field">
-                  <label>MT5 Login ID</label>
-                  <input
-                    type="number"
-                    className="glass-input"
-                    value={mt5Login}
-                    onChange={(e) => setMt5Login(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="config-field">
-                  <label>Password</label>
-                  <input
-                    type="password"
-                    className="glass-input"
-                    value={mt5Password}
-                    onChange={(e) => setMt5Password(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="config-field">
-                  <label>Server</label>
-                  <input
-                    type="text"
-                    className="glass-input"
-                    value={mt5Server}
-                    onChange={(e) => setMt5Server(e.target.value)}
-                    placeholder="e.g. TenTrade-Server"
-                    required
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary mt-2">
-                  <i className="fa-solid fa-plug mr-2"></i>
-                  {mt5Configured ? "Update Credentials" : "Connect Broker"}
-                </button>
-              </form>
-            </div>
+          <section className="p-6 lg:p-10 w-full max-w-[900px] mx-auto">
+            <h1 className="text-3xl font-semibold mb-8">Broker Integration</h1>
+            <BrokerSettings
+              fetchAPI={fetchAPI}
+              onConfiguredChange={(configured, provider) => {
+                setBrokerConfigured(Boolean(configured));
+                setBrokerProvider(provider || "");
+              }}
+              onReadinessChange={(ready, reason) => {
+                setStartBlockedReason(ready ? "" : reason || "Validate broker symbols before starting the bot.");
+              }}
+            />
           </section>
         )}
       </main>
