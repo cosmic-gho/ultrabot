@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const PROVIDERS = [
   { value: "oanda", label: "OANDA", defaultUrl: "https://api-fxpractice.oanda.com" },
-  { value: "capitalcom", label: "Capital.com", defaultUrl: "https://demo-api-capital.backend-capital.com" },
+  { value: "capitalcom", label: "Capital.com", defaultUrl: "https://demo-api-capital.backend-capital.com/api/v1" },
 ];
 
 const PRESET_SYMBOL_MAPPINGS = {
