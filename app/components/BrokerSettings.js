@@ -77,6 +77,7 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
   const [lastValidatedAt, setLastValidatedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingAccount, setSavingAccount] = useState(false);
+  const [retryingConnection, setRetryingConnection] = useState(false);
   const [savingMappings, setSavingMappings] = useState(false);
   const [validating, setValidating] = useState(false);
   const [accountMessage, setAccountMessage] = useState({ type: "", text: "" });
@@ -107,6 +108,24 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
     setValidationResults([]);
     setLastValidatedAt(null);
     updateReadiness(false, message);
+  };
+
+  const applyAccountData = (accountData) => {
+    const activeProvider = accountData.provider || provider || "oanda";
+    setProvider(activeProvider);
+    setApiUrl(accountData.api_url || defaultProviderUrl(activeProvider));
+    setMaskedAccountId(accountData.account_id || "");
+    setIsConfigured(true);
+    setHasStoredApiLogin(Boolean(accountData.has_api_login));
+    setHasStoredApiKey(Boolean(accountData.has_api_key));
+    setHasStoredApiSecret(Boolean(accountData.has_api_secret));
+    setExecutionReady(Boolean(accountData.execution_ready));
+    setExecutionMessage(accountData.execution_message || "");
+    setConnectionOk(Boolean(accountData.connection_ok));
+    setConnectionMessage(accountData.connection_message || "");
+    setSummary(accountData.summary || {});
+    onConfiguredChange?.(true, activeProvider);
+    return activeProvider;
   };
 
   const validateSymbols = async (symbolsOverride = null, options = {}) => {
@@ -185,20 +204,7 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
     try {
       const accountData = await fetchAPI("/account/broker");
       if (accountData.configured) {
-        const activeProvider = accountData.provider || "oanda";
-        setProvider(activeProvider);
-        setApiUrl(accountData.api_url || defaultProviderUrl(activeProvider));
-        setMaskedAccountId(accountData.account_id || "");
-        setIsConfigured(true);
-        setHasStoredApiLogin(Boolean(accountData.has_api_login));
-        setHasStoredApiKey(Boolean(accountData.has_api_key));
-        setHasStoredApiSecret(Boolean(accountData.has_api_secret));
-        setExecutionReady(Boolean(accountData.execution_ready));
-        setExecutionMessage(accountData.execution_message || "");
-        setConnectionOk(Boolean(accountData.connection_ok));
-        setConnectionMessage(accountData.connection_message || "");
-        setSummary(accountData.summary || {});
-        onConfiguredChange?.(true, activeProvider);
+        const activeProvider = applyAccountData(accountData);
 
         try {
           const mappingData = await fetchAPI("/account/broker/mapping");
@@ -354,17 +360,7 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
         body: JSON.stringify(payload),
       });
 
-      setMaskedAccountId(data.account_id || "");
-      setIsConfigured(true);
-      setHasStoredApiLogin(Boolean(data.has_api_login));
-      setHasStoredApiKey(Boolean(data.has_api_key));
-      setHasStoredApiSecret(Boolean(data.has_api_secret));
-      setApiUrl(data.api_url || apiUrl || defaultProviderUrl(provider));
-      setExecutionReady(Boolean(data.execution_ready));
-      setExecutionMessage(data.execution_message || "");
-      setConnectionOk(Boolean(data.connection_ok));
-      setConnectionMessage(data.connection_message || "");
-      setSummary(data.summary || {});
+      applyAccountData(data);
       setAccountMessage({ type: "success", text: "Broker account saved successfully." });
       onConfiguredChange?.(true, provider);
       setAccountId("");
@@ -384,6 +380,35 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
       setAccountMessage({ type: "error", text: error.message });
     } finally {
       setSavingAccount(false);
+    }
+  };
+
+  const handleRetryConnection = async () => {
+    setRetryingConnection(true);
+    setAccountMessage({ type: "", text: "" });
+
+    try {
+      const data = await fetchAPI("/account/broker");
+      if (!data.configured) {
+        resetConfiguredState();
+        setAccountMessage({ type: "error", text: "Link a broker account first." });
+        return;
+      }
+
+      applyAccountData(data);
+      if (data.connection_ok) {
+        setAccountMessage({ type: "success", text: "Broker connection check succeeded." });
+      } else {
+        updateReadiness(false, data.connection_message || "Broker connection failed.");
+        setAccountMessage({
+          type: "error",
+          text: data.connection_message || "Broker connection check failed.",
+        });
+      }
+    } catch (error) {
+      setAccountMessage({ type: "error", text: error.message || "Broker connection check failed." });
+    } finally {
+      setRetryingConnection(false);
     }
   };
 
@@ -445,6 +470,24 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
             {connectionMessage && (
               <p className="mt-1 text-xs text-textMuted">Connection: {connectionMessage}</p>
             )}
+            <button
+              type="button"
+              onClick={handleRetryConnection}
+              disabled={retryingConnection}
+              className="btn btn-secondary mt-3 inline-flex items-center gap-2"
+            >
+              {retryingConnection ? (
+                <>
+                  <i className="fa-solid fa-spinner fa-spin"></i>
+                  Retrying...
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-rotate-right"></i>
+                  Retry Connection
+                </>
+              )}
+            </button>
           </div>
         )}
 
