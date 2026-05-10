@@ -72,12 +72,15 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
   const [connectionOk, setConnectionOk] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState("");
   const [summary, setSummary] = useState({});
+  const [availableBrokerAccounts, setAvailableBrokerAccounts] = useState([]);
   const [mappingRows, setMappingRows] = useState([{ ...EMPTY_MAPPING_ROW }]);
   const [validationResults, setValidationResults] = useState([]);
   const [lastValidatedAt, setLastValidatedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingAccount, setSavingAccount] = useState(false);
   const [retryingConnection, setRetryingConnection] = useState(false);
+  const [loadingAvailableAccounts, setLoadingAvailableAccounts] = useState(false);
+  const [selectingAccountId, setSelectingAccountId] = useState("");
   const [savingMappings, setSavingMappings] = useState(false);
   const [validating, setValidating] = useState(false);
   const [accountMessage, setAccountMessage] = useState({ type: "", text: "" });
@@ -124,6 +127,9 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
     setConnectionOk(Boolean(accountData.connection_ok));
     setConnectionMessage(accountData.connection_message || "");
     setSummary(accountData.summary || {});
+    if (activeProvider !== "capitalcom") {
+      setAvailableBrokerAccounts([]);
+    }
     onConfiguredChange?.(true, activeProvider);
     return activeProvider;
   };
@@ -250,6 +256,7 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
     setConnectionOk(false);
     setConnectionMessage("");
     setSummary({});
+    setAvailableBrokerAccounts([]);
     setMappingRows(getSuggestedRows(provider));
     setValidationResults([]);
     onConfiguredChange?.(false, "");
@@ -261,6 +268,7 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
     setApiUrl(defaultProviderUrl(nextProvider));
     setExecutionMessage("");
     setConnectionMessage("");
+    setAvailableBrokerAccounts([]);
     setValidationResults([]);
     setMappingMessage({ type: "", text: "" });
     setMappingRows(getSuggestedRows(nextProvider));
@@ -409,6 +417,72 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
       setAccountMessage({ type: "error", text: error.message || "Broker connection check failed." });
     } finally {
       setRetryingConnection(false);
+    }
+  };
+
+  const handleLoadAvailableAccounts = async () => {
+    setLoadingAvailableAccounts(true);
+    setAccountMessage({ type: "", text: "" });
+
+    try {
+      const data = await fetchAPI("/account/broker/accounts");
+      const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+      setAvailableBrokerAccounts(accounts);
+      setAccountMessage({
+        type: "success",
+        text: accounts.length
+          ? `Found ${accounts.length} available Capital.com account${accounts.length === 1 ? "" : "s"}.`
+          : "No Capital.com accounts were returned for these credentials.",
+      });
+    } catch (error) {
+      setAvailableBrokerAccounts([]);
+      setAccountMessage({ type: "error", text: error.message || "Unable to load Capital.com accounts." });
+    } finally {
+      setLoadingAvailableAccounts(false);
+    }
+  };
+
+  const handleUseAvailableAccount = async (selectedAccountId) => {
+    setSelectingAccountId(selectedAccountId);
+    setAccountMessage({ type: "", text: "" });
+    setAccountId(selectedAccountId);
+
+    try {
+      const data = await fetchAPI("/account/broker", {
+        method: "POST",
+        body: JSON.stringify({
+          provider: "capitalcom",
+          account_id: selectedAccountId,
+          api_login: "",
+          api_key: "",
+          api_secret: "",
+          api_url: apiUrl,
+        }),
+      });
+
+      applyAccountData(data);
+      setAccountId("");
+      setApiKey("");
+      setApiSecret("");
+      setAccountMessage({
+        type: data.connection_ok ? "success" : "error",
+        text: data.connection_ok
+          ? `Saved Capital.com account ${selectedAccountId} and verified the connection.`
+          : data.connection_message || `Saved Capital.com account ${selectedAccountId}, but the connection check still failed.`,
+      });
+      if (!hasNonEmptyMappingRows(mappingRows)) {
+        setMappingRows(getSuggestedRows("capitalcom"));
+      }
+      updateReadiness(
+        false,
+        data.connection_ok
+          ? "Save and validate symbol mappings before starting the bot."
+          : data.connection_message || "Broker connection failed."
+      );
+    } catch (error) {
+      setAccountMessage({ type: "error", text: error.message || "Unable to save the selected account." });
+    } finally {
+      setSelectingAccountId("");
     }
   };
 
@@ -632,6 +706,83 @@ export default function BrokerSettings({ fetchAPI, onConfiguredChange, onReadine
             )}
           </button>
         </form>
+
+        {provider === "capitalcom" && isConfigured && (
+          <div className="mt-6 rounded-xl border border-glassBorder bg-white/[0.03] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-textMain">Available Capital.com Accounts</h4>
+                <p className="text-xs text-textMuted">
+                  Load the trading accounts attached to your saved Capital.com login and choose the correct one.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadAvailableAccounts}
+                disabled={loadingAvailableAccounts}
+                className="btn btn-secondary inline-flex items-center gap-2"
+              >
+                {loadingAvailableAccounts ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    Loading accounts...
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-list"></i>
+                    Find Available Accounts
+                  </>
+                )}
+              </button>
+            </div>
+
+            {availableBrokerAccounts.length > 0 && (
+              <div className="mt-4 grid grid-cols-1 gap-3">
+                {availableBrokerAccounts.map((accountOption) => {
+                  const optionId = String(accountOption.account_id || "");
+                  const optionLabel = accountOption.account_name || accountOption.account_type || "Capital.com account";
+                  return (
+                    <div
+                      key={optionId}
+                      className="rounded-xl border border-glassBorder bg-white/[0.02] px-4 py-3"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-textMain">{optionLabel}</div>
+                          <div className="text-xs text-textMuted break-all">Account ID: {optionId}</div>
+                          <div className="text-xs text-textMuted">
+                            {[accountOption.account_type, accountOption.currency].filter(Boolean).join(" • ")}
+                          </div>
+                          {accountOption.balance !== null && accountOption.balance !== undefined && (
+                            <div className="text-xs text-textMuted">Balance: {String(accountOption.balance)}</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUseAvailableAccount(optionId)}
+                          disabled={selectingAccountId === optionId}
+                          className="btn btn-primary inline-flex items-center gap-2"
+                        >
+                          {selectingAccountId === optionId ? (
+                            <>
+                              <i className="fa-solid fa-spinner fa-spin"></i>
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <i className="fa-solid fa-check"></i>
+                              Use This Account
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {summaryEntries.length > 0 && (
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
