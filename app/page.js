@@ -269,6 +269,11 @@ export default function Home() {
       ? "Capital.com"
       : brokerProvider.toUpperCase()
     : "Broker";
+  const isBotRunning = botStatus.status === "running";
+  const isBotAlive = Boolean(botStatus.is_alive);
+  const isBotStarting = isBotRunning && !isBotAlive;
+  const botIndicatorTone = isBotRunning && isBotAlive ? "running" : isBotStarting ? "starting" : botStatus.status === "error" ? "error" : "";
+  const botIndicatorLabel = isBotRunning && isBotAlive ? "Bot Online" : isBotStarting ? "Bot Starting" : botStatus.status === "error" ? "Bot Error" : "Bot Offline";
 
   // ═══════════════════════════════════════════
   //  AUTH SCREEN
@@ -453,22 +458,8 @@ export default function Home() {
               </div>
             )}
             <div className="flex items-center gap-2.5 px-4 py-2 bg-white/5 rounded-full border border-glassBorder text-sm">
-              <span
-                className={`pulse ${
-                  botStatus.status === "running" && botStatus.is_alive
-                    ? "running"
-                    : botStatus.status === "error"
-                    ? "error"
-                    : ""
-                }`}
-              ></span>
-              <span>
-                {botStatus.status === "running" && botStatus.is_alive
-                  ? "Bot Online"
-                  : botStatus.status === "error"
-                  ? "Bot Error"
-                  : "Bot Offline"}
-              </span>
+              <span className={`pulse ${botIndicatorTone}`}></span>
+              <span>{botIndicatorLabel}</span>
             </div>
           </div>
         </header>

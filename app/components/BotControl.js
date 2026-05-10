@@ -4,6 +4,7 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
   const isRunning = botStatus?.status === "running";
   const isError = botStatus?.status === "error";
   const isAlive = botStatus?.is_alive;
+  const isStarting = isRunning && !isAlive;
   const startBlocked = !isRunning && Boolean(startBlockedReason);
 
   const formatUptime = (seconds) => {
@@ -22,6 +23,10 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
     return d.toLocaleTimeString();
   };
 
+  const statusTone = isRunning && isAlive ? "running" : isStarting ? "starting" : isError ? "error" : "stopped";
+  const statusLabel = isRunning && isAlive ? "Running" : isStarting ? "Starting" : isError ? "Error" : "Stopped";
+  const statusDotClass = isRunning && isAlive ? "bg-success" : isStarting ? "bg-primary" : isError ? "bg-danger" : "bg-textMuted";
+
   return (
     <div className="glass-panel p-6 mb-8 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -31,6 +36,8 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
             className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-500 ${
               isRunning && isAlive
                 ? "bg-success/15 text-success pulse-glow"
+                : isStarting
+                ? "bg-primary/15 text-primary animate-pulse"
                 : isError
                 ? "bg-danger/15 text-danger"
                 : "bg-white/5 text-textMuted"
@@ -40,6 +47,8 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
               className={`fa-solid ${
                 isRunning && isAlive
                   ? "fa-robot"
+                  : isStarting
+                  ? "fa-spinner fa-spin"
                   : isError
                   ? "fa-triangle-exclamation"
                   : "fa-power-off"
@@ -49,29 +58,9 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-lg">Trading Bot</h3>
-              <span
-                className={`status-badge ${
-                  isRunning && isAlive
-                    ? "running"
-                    : isError
-                    ? "error"
-                    : "stopped"
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isRunning && isAlive
-                      ? "bg-success"
-                      : isError
-                      ? "bg-danger"
-                      : "bg-textMuted"
-                  }`}
-                ></span>
-                {isRunning && isAlive
-                  ? "Running"
-                  : isError
-                  ? "Error"
-                  : "Stopped"}
+              <span className={`status-badge ${statusTone}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${statusDotClass}`}></span>
+                {statusLabel}
               </span>
             </div>
             <div className="flex items-center gap-4 text-xs text-textMuted">
@@ -83,7 +72,9 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
                   </span>
                   <span>
                     <i className="fa-solid fa-heart-pulse mr-1"></i>
-                    Last ping: {formatTime(botStatus?.last_heartbeat)}
+                    {isAlive
+                      ? `Last ping: ${formatTime(botStatus?.last_heartbeat)}`
+                      : "Waiting for first heartbeat"}
                   </span>
                 </>
               )}
