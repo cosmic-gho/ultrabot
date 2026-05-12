@@ -108,8 +108,19 @@ export default function Home() {
     }
   };
 
+  const isMissingUserSymbolsReason = (reason = "") =>
+    reason.toLowerCase().includes("save user bot symbols first") ||
+    reason.toLowerCase().includes("no user bot symbols configured");
+
   const refreshStartReadiness = async (currentToken) => {
     try {
+      const botConfigData = await fetchAPI("/bot/config", {}, currentToken);
+      if (!Array.isArray(botConfigData.symbols) || botConfigData.symbols.length === 0) {
+        const reason = "Save user bot symbols first in Bot Configuration.";
+        setStartBlockedReason(reason);
+        return reason;
+      }
+
       const brokerData = await fetchAPI("/account/broker", {}, currentToken);
       if (!brokerData.configured) {
         const reason = "Link and validate a broker account before starting the bot.";
@@ -228,7 +239,7 @@ export default function Home() {
     try {
       const readinessError = await refreshStartReadiness();
       if (readinessError) {
-        setActiveSection("settings");
+        setActiveSection(isMissingUserSymbolsReason(readinessError) ? "config" : "settings");
         alert(readinessError);
         return;
       }
@@ -598,7 +609,17 @@ export default function Home() {
         {activeSection === "config" && (
           <section className="p-6 lg:p-10 w-full max-w-[600px] mx-auto">
             <h1 className="text-3xl font-semibold mb-8">Bot Configuration</h1>
-            <BotConfig fetchAPI={fetchAPI} />
+            <BotConfig
+              fetchAPI={fetchAPI}
+              onConfigChange={(configData) => {
+                const symbols = Array.isArray(configData?.symbols) ? configData.symbols : [];
+                if (!symbols.length) {
+                  setStartBlockedReason("Save user bot symbols first in Bot Configuration.");
+                  return;
+                }
+                refreshStartReadiness();
+              }}
+            />
           </section>
         )}
 

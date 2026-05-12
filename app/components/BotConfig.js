@@ -21,10 +21,11 @@ const TIME_GAP_PRESETS = [
   { value: 3600, label: "1 hour" },
 ];
 
-export default function BotConfig({ fetchAPI }) {
+export default function BotConfig({ fetchAPI, onConfigChange }) {
   const [lotSize, setLotSize] = useState("0.01");
   const [timeframe, setTimeframe] = useState("M5");
   const [timeGap, setTimeGap] = useState(300);
+  const [symbolsText, setSymbolsText] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -40,6 +41,8 @@ export default function BotConfig({ fetchAPI }) {
       setLotSize(data.lot_size || "0.01");
       setTimeframe(data.timeframe || "M5");
       setTimeGap(data.time_gap_seconds || 300);
+      setSymbolsText(Array.isArray(data.symbols) && data.symbols.length ? data.symbols.join(", ") : "");
+      onConfigChange?.(data);
     } catch (e) {
       console.error("Failed to load config:", e);
     } finally {
@@ -54,13 +57,28 @@ export default function BotConfig({ fetchAPI }) {
     setSaved(false);
 
     try {
+      const symbols = symbolsText
+        .split(",")
+        .map((item) => item.trim().toUpperCase())
+        .filter(Boolean);
+      if (!symbols.length) {
+        throw new Error("Enter at least one symbol.");
+      }
+
       await fetchAPI("/bot/config", {
         method: "PUT",
         body: JSON.stringify({
           lot_size: parseFloat(lotSize),
           timeframe,
           time_gap_seconds: parseInt(timeGap),
+          symbols,
         }),
+      });
+      onConfigChange?.({
+        lot_size: parseFloat(lotSize),
+        timeframe,
+        time_gap_seconds: parseInt(timeGap),
+        symbols,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -107,6 +125,13 @@ export default function BotConfig({ fetchAPI }) {
         <div className="mb-6 p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm flex items-center gap-2 animate-slide-in">
           <i className="fa-solid fa-circle-exclamation"></i>
           {error}
+        </div>
+      )}
+
+      {!symbolsText.trim() && (
+        <div className="mb-6 p-3 rounded-lg bg-warning/10 border border-warning/20 text-yellow-300 text-sm flex items-center gap-2 animate-slide-in">
+          <i className="fa-solid fa-triangle-exclamation"></i>
+          No user symbols configured. Save at least one symbol before starting the bot.
         </div>
       )}
 
@@ -173,6 +198,23 @@ export default function BotConfig({ fetchAPI }) {
           </select>
           <p className="helper">
             How often the bot scans for new trade setups.
+          </p>
+        </div>
+
+        <div className="config-field">
+          <label>
+            <i className="fa-solid fa-chart-line mr-2 text-primary"></i>
+            Symbols
+          </label>
+          <textarea
+            className="glass-input min-h-[110px]"
+            value={symbolsText}
+            onChange={(e) => setSymbolsText(e.target.value)}
+            placeholder="XAUUSD, GBPUSD"
+            required
+          />
+          <p className="helper">
+            Comma-separated canonical symbols to trade. Example: XAUUSD, GBPUSD, EURUSD.
           </p>
         </div>
 
