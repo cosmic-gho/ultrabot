@@ -26,6 +26,7 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
   const statusTone = isRunning && isAlive ? "running" : isStarting ? "starting" : isError ? "error" : "stopped";
   const statusLabel = isRunning && isAlive ? "Running" : isStarting ? "Starting" : isError ? "Error" : "Stopped";
   const statusDotClass = isRunning && isAlive ? "bg-success" : isStarting ? "bg-primary" : isError ? "bg-danger" : "bg-textMuted";
+  const cycleMessage = botStatus?.last_cycle_message || "";
 
   return (
     <div className="glass-panel p-6 mb-8 animate-fade-in-up">
@@ -77,6 +78,12 @@ export default function BotControl({ botStatus, onStart, onStop, loading, startB
                       : "Waiting for first heartbeat"}
                   </span>
                 </>
+              )}
+              {isRunning && cycleMessage && (
+                <span className="text-yellow-300">
+                  <i className="fa-solid fa-wave-square mr-1"></i>
+                  {cycleMessage}
+                </span>
               )}
               {isError && botStatus?.error_message && (
                 <span className="text-danger">

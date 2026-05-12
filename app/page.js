@@ -31,6 +31,7 @@ export default function Home() {
     total_pnl: "0.00",
     active_trades: 0,
     recent_trades: [],
+    recent_activity: [],
     winning_trades: 0,
     losing_trades: 0,
     max_win_streak: 0,
@@ -46,6 +47,8 @@ export default function Home() {
     uptime_seconds: 0,
     is_alive: false,
     error_message: "",
+    last_cycle_status: "",
+    last_cycle_message: "",
   });
   const [botLoading, setBotLoading] = useState(false);
 
@@ -285,6 +288,59 @@ export default function Home() {
   const isBotStarting = isBotRunning && !isBotAlive;
   const botIndicatorTone = isBotRunning && isBotAlive ? "running" : isBotStarting ? "starting" : botStatus.status === "error" ? "error" : "";
   const botIndicatorLabel = isBotRunning && isBotAlive ? "Bot Online" : isBotStarting ? "Bot Starting" : botStatus.status === "error" ? "Bot Error" : "Bot Offline";
+  const recentActivity = Array.isArray(dashboardData.recent_activity)
+    ? [...dashboardData.recent_activity].reverse()
+    : [];
+
+  const getActivityMeta = (status) => {
+    switch ((status || "").toLowerCase()) {
+      case "trade_executed":
+        return {
+          icon: "fa-solid fa-circle-check",
+          tone: "text-success",
+          label: "Trade Executed",
+        };
+      case "trade_failed":
+      case "error":
+        return {
+          icon: "fa-solid fa-circle-xmark",
+          tone: "text-danger",
+          label: "Trade Failed",
+        };
+      case "trade_blocked":
+      case "rejected":
+        return {
+          icon: "fa-solid fa-ban",
+          tone: "text-yellow-300",
+          label: "Signal Rejected",
+        };
+      case "cooldown":
+        return {
+          icon: "fa-solid fa-hourglass-half",
+          tone: "text-primary",
+          label: "Cooldown",
+        };
+      case "signal_detected":
+      case "accepted":
+        return {
+          icon: "fa-solid fa-wave-square",
+          tone: "text-primary",
+          label: "Signal Detected",
+        };
+      case "waiting":
+        return {
+          icon: "fa-solid fa-clock",
+          tone: "text-textMuted",
+          label: "Waiting",
+        };
+      default:
+        return {
+          icon: "fa-solid fa-circle-info",
+          tone: "text-textMuted",
+          label: "Activity",
+        };
+    }
+  };
 
   // ═══════════════════════════════════════════
   //  AUTH SCREEN
@@ -502,96 +558,147 @@ export default function Home() {
             {/* Equity Chart */}
             <EquityChart trades={dashboardData.recent_trades} />
 
-            {/* Recent Trades */}
-            <div className="glass-panel p-6 animate-fade-in-up">
-              <h3 className="font-medium text-lg mb-5 flex items-center gap-2">
-                <i className="fa-solid fa-clock-rotate-left text-primary"></i>
-                Recent Trades
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left text-sm">
-                  <thead>
-                    <tr>
-                      <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
-                        Symbol
-                      </th>
-                      <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
-                        Type
-                      </th>
-                      <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
-                        Entry
-                      </th>
-                      <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
-                        Conf
-                      </th>
-                      <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
-                        Stop Loss
-                      </th>
-                      <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
-                        Time
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {!dashboardData.recent_trades ||
-                    dashboardData.recent_trades.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan="6"
-                          className="p-6 text-center text-textMuted border-b border-glassBorder"
+            <div className="grid gap-6 xl:grid-cols-3">
+              <div className="glass-panel p-6 animate-fade-in-up xl:col-span-1">
+                <h3 className="font-medium text-lg mb-5 flex items-center gap-2">
+                  <i className="fa-solid fa-bolt text-primary"></i>
+                  Recent Activity
+                </h3>
+                {!recentActivity.length ? (
+                  <div className="py-8 text-center text-textMuted text-sm">
+                    <i className="fa-solid fa-inbox text-xl mb-2 block opacity-30"></i>
+                    No recent bot activity yet
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentActivity.map((item, idx) => {
+                      const meta = getActivityMeta(item.status);
+                      return (
+                        <div
+                          key={`${item.timestamp || "activity"}-${idx}`}
+                          className="rounded-xl border border-glassBorder bg-white/5 px-4 py-3"
                         >
-                          <i className="fa-solid fa-inbox text-xl mb-1 block opacity-30"></i>
-                          No recent trades
-                        </td>
+                          <div className="flex items-start gap-3">
+                            <i className={`${meta.icon} ${meta.tone} mt-0.5`}></i>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-3 mb-1">
+                                <span className={`text-xs font-medium uppercase tracking-wide ${meta.tone}`}>
+                                  {meta.label}
+                                </span>
+                                <span className="text-[11px] text-textMuted shrink-0">
+                                  {item.timestamp
+                                    ? new Date(item.timestamp).toLocaleTimeString()
+                                    : "--"}
+                                </span>
+                              </div>
+                              <p className="text-sm text-textMain leading-6">
+                                {item.message || "Bot activity recorded."}
+                              </p>
+                              {item.symbol && (
+                                <div className="mt-2 text-[11px] uppercase tracking-wide text-textMuted">
+                                  {item.symbol}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Trades */}
+              <div className="glass-panel p-6 animate-fade-in-up xl:col-span-2">
+                <h3 className="font-medium text-lg mb-5 flex items-center gap-2">
+                  <i className="fa-solid fa-clock-rotate-left text-primary"></i>
+                  Recent Trades
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead>
+                      <tr>
+                        <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
+                          Symbol
+                        </th>
+                        <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
+                          Type
+                        </th>
+                        <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
+                          Entry
+                        </th>
+                        <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
+                          Conf
+                        </th>
+                        <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
+                          Stop Loss
+                        </th>
+                        <th className="p-4 text-textMuted font-medium border-b border-glassBorder">
+                          Time
+                        </th>
                       </tr>
-                    ) : (
-                      [...dashboardData.recent_trades]
-                        .reverse()
-                        .map((t, idx) => (
-                          <tr
-                            key={idx}
-                            className="hover:bg-white/5 transition-colors"
+                    </thead>
+                    <tbody>
+                      {!dashboardData.recent_trades ||
+                      dashboardData.recent_trades.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan="6"
+                            className="p-6 text-center text-textMuted border-b border-glassBorder"
                           >
-                            <td className="p-4 border-b border-glassBorder font-medium">
-                              {t.symbol || "--"}
-                            </td>
-                            <td
-                              className={`p-4 border-b border-glassBorder font-medium ${
-                                t.direction === "BUY"
-                                  ? "text-success"
-                                  : "text-danger"
-                              }`}
+                            <i className="fa-solid fa-inbox text-xl mb-1 block opacity-30"></i>
+                            No recent trades
+                          </td>
+                        </tr>
+                      ) : (
+                        [...dashboardData.recent_trades]
+                          .reverse()
+                          .map((t, idx) => (
+                            <tr
+                              key={idx}
+                              className="hover:bg-white/5 transition-colors"
                             >
-                              <i
-                                className={`fa-solid ${
+                              <td className="p-4 border-b border-glassBorder font-medium">
+                                {t.symbol || "--"}
+                              </td>
+                              <td
+                                className={`p-4 border-b border-glassBorder font-medium ${
                                   t.direction === "BUY"
-                                    ? "fa-arrow-trend-up"
-                                    : "fa-arrow-trend-down"
-                                } mr-1`}
-                              ></i>
-                              {t.direction || "--"}
-                            </td>
-                            <td className="p-4 border-b border-glassBorder">
-                              {t.entry_price || "--"}
-                            </td>
-                            <td className="p-4 border-b border-glassBorder">
-                              {t.confidence
-                                ? (t.confidence * 100).toFixed(1) + "%"
-                                : "--"}
-                            </td>
-                            <td className="p-4 border-b border-glassBorder text-danger">
-                              {t.stop_loss || "--"}
-                            </td>
-                            <td className="p-4 border-b border-glassBorder text-textMuted text-xs">
-                              {t.timestamp
-                                ? new Date(t.timestamp).toLocaleTimeString()
-                                : "--"}
-                            </td>
-                          </tr>
-                        ))
-                    )}
-                  </tbody>
-                </table>
+                                    ? "text-success"
+                                    : "text-danger"
+                                }`}
+                              >
+                                <i
+                                  className={`fa-solid ${
+                                    t.direction === "BUY"
+                                      ? "fa-arrow-trend-up"
+                                      : "fa-arrow-trend-down"
+                                  } mr-1`}
+                                ></i>
+                                {t.direction || "--"}
+                              </td>
+                              <td className="p-4 border-b border-glassBorder">
+                                {t.entry_price || "--"}
+                              </td>
+                              <td className="p-4 border-b border-glassBorder">
+                                {t.confidence
+                                  ? (t.confidence * 100).toFixed(1) + "%"
+                                  : "--"}
+                              </td>
+                              <td className="p-4 border-b border-glassBorder text-danger">
+                                {t.stop_loss || "--"}
+                              </td>
+                              <td className="p-4 border-b border-glassBorder text-textMuted text-xs">
+                                {t.timestamp
+                                  ? new Date(t.timestamp).toLocaleTimeString()
+                                  : "--"}
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>
