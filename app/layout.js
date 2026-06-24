@@ -16,6 +16,7 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
         />
+          <meta name="ory-verify" content="orynth-292d175b1e83483896834b5c93476252" />
       </head>
       <body className={outfit.className}>{children}</body>
     </html>
